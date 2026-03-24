@@ -21,13 +21,37 @@ jobs:
               "Content-Type": "application/json"
           }
 
+          BASE_URL   = "https://api.todoist.com/api/v1"
           FROM_LABEL = "Ayer"
           TO_LABEL   = "Hoy"
 
-          resp = requests.get("https://api.todoist.com/rest/v2/tasks", headers=HEADERS)
-          resp.raise_for_status()
-          tasks = resp.json()
+          # La API v1 pagina resultados — hay que iterar hasta agotar páginas
+          def get_all_tasks():
+              tasks = []
+              cursor = None
+              while True:
+                  params = {"limit": 200}
+                  if cursor:
+                      params["cursor"] = cursor
+                  resp = requests.get(f"{BASE_URL}/tasks", headers=HEADERS, params=params)
+                  resp.raise_for_status()
+                  data = resp.json()
+                  tasks.extend(data.get("results", []))
+                  cursor = data.get("next_cursor")
+                  if not cursor:
+                      break
+              return tasks
 
+          def update_task_labels(task_id, new_labels):
+              resp = requests.post(
+                  f"{BASE_URL}/tasks/{task_id}",
+                  headers=HEADERS,
+                  json={"labels": new_labels}
+              )
+              resp.raise_for_status()
+              time.sleep(0.3)
+
+          tasks = get_all_tasks()
           updated = 0
           skipped = 0
 
@@ -40,19 +64,13 @@ jobs:
 
               if FROM_LABEL in labels:
                   new_labels = [TO_LABEL if l == FROM_LABEL else l for l in labels]
-                  patch = requests.post(
-                      f"https://api.todoist.com/rest/v2/tasks/{task['id']}",
-                      headers=HEADERS,
-                      json={"labels": new_labels}
-                  )
-                  patch.raise_for_status()
+                  update_task_labels(task["id"], new_labels)
                   print(f"✓ {task['content'][:70]}")
                   print(f"  {labels} → {new_labels}")
                   updated += 1
-                  time.sleep(0.3)
 
           print(f"\n--- Resultado ---")
-          print(f"Actualizadas : {updated}")
-          print(f"Ignoradas (@Atrasado): {skipped}")
-          print(f"Sin etiqueta @Ayer   : {len(tasks) - updated - skipped}")
+          print(f"Actualizadas          : {updated}")
+          print(f"Ignoradas (@Atrasado) : {skipped}")
+          print(f"Sin etiqueta @Ayer    : {len(tasks) - updated - skipped}")
           EOF
