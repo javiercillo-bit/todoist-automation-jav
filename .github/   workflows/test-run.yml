@@ -1,0 +1,58 @@
+name: Todoist – TEST RUN (Ayer → Hoy)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-label-rotation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Rotar Ayer → Hoy (solo test)
+        env:
+          TODOIST_API_TOKEN: ${{ secrets.TODOIST_API_TOKEN }}
+        run: |
+          python3 << 'EOF'
+          import requests
+          import time
+
+          TOKEN = "${{ secrets.TODOIST_API_TOKEN }}"
+          HEADERS = {
+              "Authorization": f"Bearer {TOKEN}",
+              "Content-Type": "application/json"
+          }
+
+          FROM_LABEL = "Ayer"
+          TO_LABEL   = "Hoy"
+
+          resp = requests.get("https://api.todoist.com/rest/v2/tasks", headers=HEADERS)
+          resp.raise_for_status()
+          tasks = resp.json()
+
+          updated = 0
+          skipped = 0
+
+          for task in tasks:
+              labels = task.get("labels", [])
+
+              if "Atrasado" in labels:
+                  skipped += 1
+                  continue
+
+              if FROM_LABEL in labels:
+                  new_labels = [TO_LABEL if l == FROM_LABEL else l for l in labels]
+                  patch = requests.post(
+                      f"https://api.todoist.com/rest/v2/tasks/{task['id']}",
+                      headers=HEADERS,
+                      json={"labels": new_labels}
+                  )
+                  patch.raise_for_status()
+                  print(f"✓ {task['content'][:70]}")
+                  print(f"  {labels} → {new_labels}")
+                  updated += 1
+                  time.sleep(0.3)
+
+          print(f"\n--- Resultado ---")
+          print(f"Actualizadas : {updated}")
+          print(f"Ignoradas (@Atrasado): {skipped}")
+          print(f"Sin etiqueta @Ayer   : {len(tasks) - updated - skipped}")
+          EOF
