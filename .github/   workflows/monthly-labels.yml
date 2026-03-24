@@ -1,0 +1,91 @@
+name: Todoist – Rotación mensual de etiquetas
+
+on:
+  schedule:
+    # Corre a las 03:00 UTC del día 28, 29, 30 y 31 de cada mes.
+    # El script verifica internamente si HOY es el último día del mes.
+    # Esto cubre todos los meses (febrero incluido) sin disparos dobles.
+    - cron: "59 2 28-31 * *"
+  workflow_dispatch:
+
+jobs:
+  rotate-monthly-labels:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verificar si hoy es el último día del mes
+        id: check_last_day
+        run: |
+          python3 << 'EOF'
+          import datetime, os
+
+          # Zona horaria Chile: UTC-3 en verano (oct-mar), UTC-4 en invierno
+          # Para simplificar usamos UTC-3 (horario de verano, más común para prod)
+          now_utc = datetime.datetime.utcnow()
+          now_chile = now_utc - datetime.timedelta(hours=3)
+
+          today = now_chile.date()
+          tomorrow = today + datetime.timedelta(days=1)
+          is_last_day = (tomorrow.month != today.month)
+
+          print(f"Fecha Chile: {today}")
+          print(f"¿Último día del mes?: {is_last_day}")
+
+          # Escribe output para el siguiente step
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"is_last_day={'true' if is_last_day else 'false'}\n")
+          EOF
+
+      - name: Rotar etiquetas mensuales
+        if: steps.check_last_day.outputs.is_last_day == 'true'
+        env:
+          TODOIST_API_TOKEN: ${{ secrets.TODOIST_API_TOKEN }}
+        run: |
+          python3 << 'EOF'
+          import requests
+          import time
+
+          TOKEN = "${{ secrets.TODOIST_API_TOKEN }}"
+          HEADERS = {
+              "Authorization": f"Bearer {TOKEN}",
+              "Content-Type": "application/json"
+          }
+
+          # Orden: de más vieja a más nueva para evitar doble rotación en el mismo run
+          ROTATIONS = [
+              ("Mes pasado",    "Atrasado"),
+              ("Este mes",      "Mes pasado"),
+              ("Próximo mes",   "Este mes"),
+          ]
+
+          def get_all_tasks():
+              resp = requests.get("https://api.todoist.com/rest/v2/tasks", headers=HEADERS)
+              resp.raise_for_status()
+              return resp.json()
+
+          def update_task_labels(task_id, new_labels):
+              resp = requests.post(
+                  f"https://api.todoist.com/rest/v2/tasks/{task_id}",
+                  headers=HEADERS,
+                  json={"labels": new_labels}
+              )
+              resp.raise_for_status()
+              time.sleep(0.3)  # rate limit
+
+          tasks = get_all_tasks()
+          total_updated = 0
+
+          for from_label, to_label in ROTATIONS:
+              for task in tasks:
+                  labels = task.get("labels", [])
+
+                  if "Atrasado" in labels:
+                      continue
+
+                  if from_label in labels:
+                      new_labels = [to_label if l == from_label else l for l in labels]
+                      update_task_labels(task["id"], new_labels)
+                      print(f"✓ [{from_label} → {to_label}] {task['content'][:60]}")
+                      total_updated += 1
+
+          print(f"\nTotal tareas actualizadas: {total_updated}")
+          EOF
