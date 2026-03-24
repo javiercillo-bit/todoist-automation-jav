@@ -18,13 +18,8 @@ on:
           - monthly
 
   schedule:
-    # Diario 00:00 Chile → 03:00 UTC
     - cron: "0 3 * * *"
-
-    # Semanal domingo 23:59 Chile → lunes 02:59 UTC
     - cron: "59 2 * * 1"
-
-    # Mensual día 30 23:59 Chile → 02:59 UTC día 1
     - cron: "59 2 1 * *"
 
 jobs:
