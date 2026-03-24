@@ -1,0 +1,39 @@
+name: Todoist Automation
+
+on:
+  schedule:
+    # Diario 00:00 Chile → 03:00 UTC
+    - cron: "0 3 * * *"
+
+    # Semanal domingo 23:59 Chile → lunes 02:59 UTC
+    - cron: "59 2 * * 1"
+
+    # Mensual día 30 23:59 Chile → 02:59 UTC día 1
+    - cron: "59 2 1 * *"
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install
+        run: pip install requests
+
+      - name: Detect mode
+        id: mode
+        run: |
+          if [ "${{ github.event.schedule }}" == "0 3 * * *" ]; then
+            echo "MODE=daily" >> $GITHUB_ENV
+          elif [ "${{ github.event.schedule }}" == "59 2 * * 1" ]; then
+            echo "MODE=weekly" >> $GITHUB_ENV
+          else
+            echo "MODE=monthly" >> $GITHUB_ENV
+          fi
+
+      - name: Run script
+        run: python app.py
+        env:
+          TODOIST_API_TOKEN: ${{ secrets.TODOIST_API_TOKEN }}
+          MODE: $MODE
