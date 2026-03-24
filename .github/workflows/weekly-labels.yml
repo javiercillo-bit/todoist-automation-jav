@@ -25,6 +25,8 @@ jobs:
               "Content-Type": "application/json"
           }
 
+          BASE_URL = "https://api.todoist.com/api/v1"
+
           # Orden: de más vieja a más nueva para evitar doble rotación
           ROTATIONS = [
               ("Semana pasada",   "Atrasado"),
@@ -33,13 +35,24 @@ jobs:
           ]
 
           def get_all_tasks():
-              resp = requests.get("https://api.todoist.com/rest/v2/tasks", headers=HEADERS)
-              resp.raise_for_status()
-              return resp.json()
+              tasks = []
+              cursor = None
+              while True:
+                  params = {"limit": 200}
+                  if cursor:
+                      params["cursor"] = cursor
+                  resp = requests.get(f"{BASE_URL}/tasks", headers=HEADERS, params=params)
+                  resp.raise_for_status()
+                  data = resp.json()
+                  tasks.extend(data.get("results", []))
+                  cursor = data.get("next_cursor")
+                  if not cursor:
+                      break
+              return tasks
 
           def update_task_labels(task_id, new_labels):
               resp = requests.post(
-                  f"https://api.todoist.com/rest/v2/tasks/{task_id}",
+                  f"{BASE_URL}/tasks/{task_id}",
                   headers=HEADERS,
                   json={"labels": new_labels}
               )
