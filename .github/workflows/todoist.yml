@@ -1,6 +1,19 @@
 name: Todoist Automation
 
 on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Mode to run"
+        required: true
+        default: "test"
+        type: choice
+        options:
+          - test
+          - daily
+          - weekly
+          - monthly
+
   schedule:
     # Diario 00:00 Chile → 03:00 UTC
     - cron: "0 3 * * *"
@@ -18,11 +31,15 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Install
+      - name: Install dependencies
         run: pip install requests
 
-      - name: Detect mode
-        id: mode
+      - name: Set mode (manual trigger)
+        if: github.event_name == 'workflow_dispatch'
+        run: echo "MODE=${{ github.event.inputs.mode }}" >> $GITHUB_ENV
+
+      - name: Set mode (scheduled)
+        if: github.event_name == 'schedule'
         run: |
           if [ "${{ github.event.schedule }}" == "0 3 * * *" ]; then
             echo "MODE=daily" >> $GITHUB_ENV
