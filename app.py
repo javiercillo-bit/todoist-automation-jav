@@ -3,9 +3,9 @@ import time
 import os
 
 TOKEN = os.getenv("TODOIST_API_TOKEN")
-MODE = os.getenv("MODE")  # daily / weekly / monthly / test
+MODE = os.getenv("MODE")
 
-BASE_URL = "https://api.todoist.com/rest/v2"
+BASE_URL = "https://api.todoist.com/api/v1"
 
 HEADERS = {
     "Authorization": f"Bearer {TOKEN}",
@@ -13,28 +13,33 @@ HEADERS = {
 }
 
 def get_tasks():
-    r = requests.get(f"{BASE_URL}/tasks", headers=HEADERS)
+    r = requests.get(f"{BASE_URL}/tasks/get", headers=HEADERS)
     r.raise_for_status()
-    return r.json()
+    return r.json()["items"]
 
 def update_task(task_id, labels):
     r = requests.post(
-        f"{BASE_URL}/tasks/{task_id}",
+        f"{BASE_URL}/tasks/update",
         headers=HEADERS,
-        json={"labels": labels}
+        json={
+            "id": task_id,
+            "labels": labels
+        }
     )
     r.raise_for_status()
 
 def move_label(tasks, from_label, to_label):
     count = 0
     for t in tasks:
-        if from_label in t["labels"]:
-            current = t["labels"]
-            new = [l for l in current if l != from_label]
-            if to_label not in new:
-                new.append(to_label)
+        labels = t.get("labels", [])
 
-            update_task(t["id"], new)
+        if from_label in labels:
+            new_labels = [l for l in labels if l != from_label]
+
+            if to_label not in new_labels:
+                new_labels.append(to_label)
+
+            update_task(t["id"], new_labels)
             print(f"{from_label} → {to_label} | {t['id']}")
             count += 1
 
@@ -62,7 +67,6 @@ def run_monthly(tasks):
     move_label(tasks, "@Próximo mes", "@Este mes")
 
 def run_test(tasks):
-    # Solo para pruebas manuales
     move_label(tasks, "@Ayer", "@Hoy")
 
 if __name__ == "__main__":
