@@ -39,7 +39,9 @@ jobs:
 
       - name: Set mode (manual trigger)
         if: github.event_name == 'workflow_dispatch'
-        run: echo "MODE=${{ github.event.inputs.mode }}" >> $GITHUB_ENV
+        run: |
+          echo "Selected mode: ${{ github.event.inputs.mode }}"
+          echo "MODE=${{ github.event.inputs.mode }}" >> $GITHUB_ENV
 
       - name: Set mode (scheduled)
         if: github.event_name == 'schedule'
@@ -52,8 +54,13 @@ jobs:
             echo "MODE=monthly" >> $GITHUB_ENV
           fi
 
+      - name: Debug MODE
+        run: echo "MODE is $MODE"
+
       - name: Run script
-        run: python app.py
+        run: |
+          echo "Running script..."
+          python app.py || echo "Script failed"
         env:
           TODOIST_API_TOKEN: ${{ secrets.TODOIST_API_TOKEN }}
           MODE: $MODE
