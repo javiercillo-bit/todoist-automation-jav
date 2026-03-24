@@ -3,6 +3,8 @@ import time
 import os
 
 TOKEN = os.getenv("TODOIST_API_TOKEN")
+MODE = os.getenv("MODE")  # daily / weekly / monthly / test
+
 BASE_URL = "https://api.todoist.com/rest/v2"
 
 HEADERS = {
@@ -31,6 +33,7 @@ def move_label(tasks, from_label, to_label):
             if to_label not in new:
                 new.append(to_label)
             update_task(t["id"], new)
+            print(f"{from_label} → {to_label} | {t['id']}")
 
 def run_daily(tasks):
     move_label(tasks, "@Ayer", "@Atrasado")
@@ -53,13 +56,18 @@ def run_monthly(tasks):
     time.sleep(15)
     move_label(tasks, "@Próximo mes", "@Este mes")
 
+def run_test(tasks):
+    # SOLO para pruebas manuales
+    move_label(tasks, "@Ayer", "@Hoy")
+
 if __name__ == "__main__":
-    mode = os.getenv("MODE")  # daily / weekly / monthly
     tasks = get_tasks()
 
-    if mode == "daily":
+    if MODE == "daily":
         run_daily(tasks)
-    elif mode == "weekly":
+    elif MODE == "weekly":
         run_weekly(tasks)
-    elif mode == "monthly":
+    elif MODE == "monthly":
         run_monthly(tasks)
+    elif MODE == "test":
+        run_test(tasks)
