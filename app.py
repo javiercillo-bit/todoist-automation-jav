@@ -26,14 +26,19 @@ def update_task(task_id, labels):
     r.raise_for_status()
 
 def move_label(tasks, from_label, to_label):
+    count = 0
     for t in tasks:
         if from_label in t["labels"]:
             current = t["labels"]
             new = [l for l in current if l != from_label]
             if to_label not in new:
                 new.append(to_label)
+
             update_task(t["id"], new)
             print(f"{from_label} → {to_label} | {t['id']}")
+            count += 1
+
+    print(f"Total movidas {from_label} → {to_label}: {count}")
 
 def run_daily(tasks):
     move_label(tasks, "@Ayer", "@Atrasado")
@@ -57,17 +62,36 @@ def run_monthly(tasks):
     move_label(tasks, "@Próximo mes", "@Este mes")
 
 def run_test(tasks):
-    # SOLO para pruebas manuales
+    # Solo para pruebas manuales
     move_label(tasks, "@Ayer", "@Hoy")
 
 if __name__ == "__main__":
-    tasks = get_tasks()
+    print("=== START ===")
+    print("MODE:", MODE)
 
-    if MODE == "daily":
-        run_daily(tasks)
-    elif MODE == "weekly":
-        run_weekly(tasks)
-    elif MODE == "monthly":
-        run_monthly(tasks)
-    elif MODE == "test":
-        run_test(tasks)
+    if not TOKEN:
+        raise Exception("Falta TODOIST_API_TOKEN")
+
+    try:
+        tasks = get_tasks()
+        print(f"Tasks encontradas: {len(tasks)}")
+    except Exception as e:
+        print("Error obteniendo tareas:", str(e))
+        raise
+
+    try:
+        if MODE == "daily":
+            run_daily(tasks)
+        elif MODE == "weekly":
+            run_weekly(tasks)
+        elif MODE == "monthly":
+            run_monthly(tasks)
+        elif MODE == "test":
+            run_test(tasks)
+        else:
+            raise Exception(f"MODE desconocido: {MODE}")
+    except Exception as e:
+        print("Error ejecutando lógica:", str(e))
+        raise
+
+    print("=== END ===")
