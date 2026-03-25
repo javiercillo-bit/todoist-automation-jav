@@ -63,7 +63,9 @@ jobs:
               time.sleep(0.3)  # respeta el rate limit de Todoist
 
           tasks = get_all_tasks()
-          total_updated = 0          for from_label, to_label in ROTATIONS:
+          total_updated = 0
+
+          for from_label, to_label in ROTATIONS:
               for task in tasks:
                   labels = task.get("labels", [])
 
